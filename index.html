@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>リスキリング研修 チャット</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap">
+<style>
+  :root{ --paper:#F2F1EC; --card:#FBFAF6; --ink:#25313A; --soft:#5A6470; --line:#D3D6D2; --acc:#A4572A; --accbg:#F0E1D2; --main:#2F5D7C; --mainbg:#DCE7EE; --warn:#8F3F2B; --warnbg:#F0DCD4; }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{ display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; margin:0; background:var(--paper); color:var(--ink); font-family:"Zen Maru Gothic","Noto Sans JP","Hiragino Maru Gothic ProN","Meiryo",sans-serif; line-height:1.7; }
+  .hidden{ display:none !important; }
+  h1{ font-weight:700; margin:0; }
+  button{ font:inherit; font-weight:700; border:none; border-radius:22px; padding:10px 22px; cursor:pointer; background:var(--main); color:#fff; min-height:44px; }
+  button.sub{ background:var(--card); color:var(--ink); border:1.5px solid var(--line); }
+  button.link{ background:none; color:var(--soft); text-decoration:underline; padding:4px 8px; min-height:0; font-weight:500; font-size:13px; }
+  button:disabled{ background:#B5B9BC; cursor:not-allowed; }
+  input[type=text], textarea, select{ width:100%; font:inherit; padding:10px 12px; border:1.5px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+  input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible{ outline:3px solid var(--acc); outline-offset:2px; }
+  label.field{ display:block; font-weight:700; margin:14px 0 6px; }
+
+  /* 入口 */
+  .gate{ flex:1; min-height:0; overflow-y:auto; width:100%; max-width:560px; margin:0 auto; padding:34px 18px 60px; }
+  .kicker{ font-size:12px; letter-spacing:.14em; color:var(--soft); }
+  .gate h1{ font-size:clamp(26px,6.5vw,34px); margin:6px 0 10px; line-height:1.35; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin:14px 0; }
+  .card ul{ margin:6px 0 0; padding-left:1.3em; font-size:14.5px; }
+  .card li{ margin:3px 0; }
+  .err{ background:var(--warnbg); color:var(--warn); border-radius:10px; padding:10px 14px; font-size:14px; font-weight:700; margin:12px 0; }
+  .soft{ color:var(--soft); font-size:13px; }
+  .banner{ background:var(--accbg); color:var(--ink); font-size:13px; padding:6px 14px; text-align:center; }
+
+  /* チャット画面 */
+  .chat{ display:flex; flex-direction:column; flex:1; min-height:0; width:100%; max-width:820px; margin:0 auto; background:var(--paper); }
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px 6px; }
+  .top h1{ font-size:19px; line-height:1.4; }
+  .top button{ flex:none; white-space:nowrap; }
+  @media (max-width:480px){ .top h1{ font-size:16px; } }
+  .top .who{ font-size:12.5px; color:var(--soft); }
+  .groupbar{ display:flex; align-items:center; gap:8px; padding:0 14px 8px; font-size:13.5px; }
+  .groupbar select{ width:auto; min-width:12em; padding:6px 10px; min-height:40px; }
+  .gname{ display:inline-block; background:var(--mainbg); color:var(--main); border-radius:12px; padding:0 10px; font-size:12.5px; font-weight:700; margin-left:6px; }
+  .tabs{ display:flex; flex-wrap:wrap; gap:6px; padding:0 12px 8px; border-bottom:1px solid var(--line); }
+  .tab{ flex:none; background:var(--card); color:var(--ink); border:1.5px solid var(--line); border-radius:18px; padding:6px 14px; min-height:40px; font-size:14px; }
+  .tab[aria-current=true]{ background:var(--main); color:#fff; border-color:var(--main); }
+  .tab .badge{ display:inline-block; min-width:1.5em; margin-left:6px; padding:0 6px; border-radius:10px; background:var(--acc); color:#fff; font-size:12px; line-height:1.5; }
+  .desc{ margin:0; padding:8px 16px 0; font-size:13px; color:var(--soft); }
+  .log{ flex:1; overflow-y:auto; padding:8px 14px 14px; -webkit-overflow-scrolling:touch; }
+  .day{ text-align:center; font-size:12px; color:var(--soft); margin:14px 0 6px; }
+  .msg{ display:flex; flex-direction:column; align-items:flex-start; margin:8px 0; max-width:88%; }
+  .msg.mine{ align-items:flex-end; margin-left:auto; }
+  .meta{ font-size:12.5px; color:var(--soft); display:flex; gap:6px; align-items:center; margin:0 4px 2px; }
+  .meta b{ color:var(--ink); }
+  .tag{ background:var(--accbg); color:var(--acc); border-radius:10px; padding:0 8px; font-size:11.5px; font-weight:700; }
+  .bubble{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:8px 13px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; }
+  .msg.mine .bubble{ background:var(--mainbg); border-color:#BFD0DC; }
+  .msg.admin .bubble{ background:var(--accbg); border-color:#DEC6AE; }
+  .bubble a{ color:var(--acc); }
+  .del{ background:none; color:var(--soft); font-weight:500; font-size:12px; padding:0 6px; min-height:28px; border-radius:8px; text-decoration:underline; }
+  .empty{ text-align:center; color:var(--soft); margin:40px 10px; font-size:14.5px; }
+  .composer{ border-top:1px solid var(--line); padding:8px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--paper); }
+  .composer .row{ display:flex; gap:8px; align-items:flex-end; }
+  .composer button{ flex:none; white-space:nowrap; }
+  .composer textarea{ resize:none; min-height:44px; max-height:140px; font-size:16px; }
+  .composer .hint{ font-size:11.5px; color:var(--soft); margin:4px 4px 0; }
+  .composer .all{ display:flex; align-items:center; gap:6px; font-size:13px; margin:0 4px 6px; }
+  .composer .all input{ width:18px; height:18px; }
+  .locked{ text-align:center; color:var(--soft); font-size:14px; padding:10px; background:var(--card); border-radius:12px; }
+  .toast{ position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:20px; font-size:14px; z-index:20; max-width:90vw; }
+  dialog{ border:1px solid var(--line); border-radius:16px; background:var(--card); color:var(--ink); max-width:min(520px,92vw); padding:18px 20px; }
+  dialog::backdrop{ background:rgba(37,49,58,.45); }
+  dialog h2{ margin:0 0 8px; font-size:18px; }
+  dialog .row{ display:flex; gap:8px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<noscript><p style="padding:20px">このページは JavaScript を使います。ブラウザの設定で JavaScript をオンにしてください。</p></noscript>
+
+<div id="demoBanner" class="banner hidden">れんしゅうモードです（メッセージは、この端末の中だけに保存されます）。合言葉は <span id="demoCodes"></span> です。</div>
+
+<!-- 入口 -->
+<main id="gate" class="gate hidden">
+  <div class="kicker">RESKILLING TRAINING</div>
+  <h1 id="gateTitle">リスキリング研修 チャット</h1>
+  <p class="soft" style="font-size:14.5px;margin:0">研修を受けたみなさんの、質問や情報交換の場所です。講師から届いた合言葉で入ります。</p>
+
+  <div class="card">
+    <b>みんなのルール</b>
+    <ul class="rulesList"></ul>
+  </div>
+
+  <form id="joinForm" autocomplete="off">
+    <label class="field" for="codeInput">合言葉</label>
+    <input type="text" id="codeInput" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="講師から届いた合言葉">
+    <label class="field" for="nameInput">ニックネーム（みんなに見える名前）</label>
+    <input type="text" id="nameInput" maxlength="20" placeholder="例：たなか">
+    <div id="gateErr" class="err hidden" role="alert"></div>
+    <div style="margin-top:16px"><button type="submit" id="joinBtn">入る</button></div>
+  </form>
+
+  <p style="text-align:center;margin-top:22px"><button type="button" class="link" id="adminLink">講師はこちら</button></p>
+</main>
+
+<!-- チャット -->
+<div id="chat" class="chat hidden">
+  <div class="top">
+    <div>
+      <h1 id="chatTitle">リスキリング研修 チャット</h1>
+      <div class="who" id="who"></div>
+    </div>
+    <button type="button" class="sub" id="menuBtn" style="padding:6px 16px;min-height:40px">メニュー</button>
+  </div>
+  <div class="groupbar hidden" id="groupbar">
+    <label for="groupSel" style="font-weight:700">見ているグループ</label>
+    <select id="groupSel"></select>
+  </div>
+  <nav class="tabs" id="tabs" aria-label="部屋"></nav>
+  <p class="desc" id="desc"></p>
+  <div class="log" id="log" role="log" aria-live="polite" aria-label="メッセージ"></div>
+  <div class="composer" id="composer"></div>
+</div>
+
+<dialog id="menuDlg">
+  <h2>メニュー</h2>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button type="button" class="sub" id="rulesBtn">ルールを見る</button>
+    <button type="button" class="sub" id="renameBtn">名前をかえる</button>
+    <button type="button" class="sub" id="logoutBtn">ログアウト</button>
+  </div>
+  <div class="row"><button type="button" id="menuClose">閉じる</button></div>
+</dialog>
+
+<dialog id="rulesDlg">
+  <h2>みんなのルール</h2>
+  <ul class="rulesList" style="margin:0;padding-left:1.3em;font-size:14.5px"></ul>
+  <div class="row"><button type="button" id="rulesClose">閉じる</button></div>
+</dialog>
+
+<dialog id="renameDlg">
+  <h2>名前をかえる</h2>
+  <label class="field" for="renameInput" style="margin-top:0">ニックネーム</label>
+  <input type="text" id="renameInput" maxlength="20">
+  <div id="renameErr" class="err hidden" role="alert"></div>
+  <div class="row"><button type="button" class="sub" id="renameCancel">やめる</button><button type="button" id="renameSave">保存</button></div>
+</dialog>
+
+<div id="toast" class="toast hidden" role="status"></div>
+
+<script type="module">
+/* ============ 設定（ここだけ書きかえます） ============ */
+const TITLE = "リスキリング研修 チャット";
+const ADMIN_NAME = "加藤";            // 講師の表示名
+// グループの一覧。増やすときは、1行コピーして id と name を変えます（id は半角英数字）。
+// demoCode は「れんしゅうモード」のときだけ使う合言葉です。本番の合言葉は Firebase に入れます（セットアップ手順の5）。
+const GROUPS = [
+  { id: "g1", name: "リスキリング研修", demoCode: "demo" },
+];
+// Firebase の設定を貼る場所。null のあいだは「れんしゅうモード」（この端末の中だけで動く）
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAs5zWkokc5r58X-aorrm4nDQcy1_g2toY",
+  authDomain: "reskilling-chat-nakamurap.firebaseapp.com",
+  projectId: "reskilling-chat-nakamurap",
+  storageBucket: "reskilling-chat-nakamurap.firebasestorage.app",
+  messagingSenderId: "666292123759",
+  appId: "1:666292123759:web:4e5348ab850503816ff59a"
+};
+const FIREBASE_VERSION = "10.14.1";
+/* ====================================================== */
+
+const ROOMS = [
+  { id: "info", name: "お知らせ・資料", desc: "講師からのお知らせや、資料のリンクをお届けします。", adminOnly: true },
+  { id: "ask",  name: "質問",           desc: "わからなかったこと、うまくいかなかったことを、気軽にどうぞ。" },
+  { id: "done", name: "できたこと",     desc: "やってみたこと、できたこと、工夫したことをシェアしましょう。" },
+  { id: "talk", name: "おしゃべり",     desc: "ひと息つく場所です。雑談や、はげまし合いにどうぞ。" },
+];
+const RULES = [
+  "研修のための場所です。わからないことは、遠慮なく聞いてください。",
+  "お客様の名前・住所・電話番号など、個人情報は書かないでください。",
+  "パスワードや、社外に出せない情報は書かないでください。",
+  "ほかの人の質問や失敗を、笑ったり責めたりしません。",
+  "困ったことや気になる書き込みは、講師へ個別にお知らせください。",
+];
+const MAX_TEXT = 1000, KEEP = 50;
+
+const $ = (id) => document.getElementById(id);
+function el(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  if (props) for (const k in props) { if (k === "class") e.className = props[k]; else if (k.startsWith("on")) e.addEventListener(k.slice(2), props[k]); else e.setAttribute(k, props[k]); }
+  kids.flat().forEach((c) => { if (c == null) return; e.append(c.nodeType ? c : document.createTextNode(String(c))); });
+  return e;
+}
+function toast(text) {
+  const t = $("toast"); t.textContent = text; t.classList.remove("hidden");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.add("hidden"), 3500);
+}
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* 保存できなくても動く */ } };
+const groupOf = (id) => GROUPS.find((g) => g.id === id);
+const roomOf = (id) => ROOMS.find((r) => r.id === id);
+const key = (g, r) => g + "/" + r;
+
+/* ============ つなぎ先その1：れんしゅうモード（この端末の中だけ） ============ */
+function makeDemo() {
+  const subs = {};
+  const uid = lsGet("gc_demo_uid") || ("u" + Math.random().toString(36).slice(2, 10));
+  lsSet("gc_demo_uid", uid);
+  let sessionCb = () => {};
+  const seed = (g) => ({
+    info: [{ name: ADMIN_NAME, admin: true, ago: 180, text: "ようこそ。研修を受けたみなさんの場所です。わからないことは、いつでも聞いてください。\n（これは、れんしゅう用のサンプルです）" }],
+    ask:  [{ name: "たなか", ago: 120, text: "前回の課題、保存の場所がわからなくなりました。どこに保存すればいいですか？" },
+           { name: ADMIN_NAME, admin: true, ago: 100, text: "デスクトップの「研修」フォルダーに保存してください。次回いっしょに確かめましょう。" }],
+    done: [{ name: "すずき", ago: 60, text: "見積書のひな形を、AIに手伝ってもらって作れました！" }],
+    talk: [],
+  });
+  const sk = (g, r) => "gc_demo_" + g + "_" + r;
+  function read(g, r) {
+    let arr = null;
+    try { arr = JSON.parse(lsGet(sk(g, r)) || "null"); } catch (e) { arr = null; }
+    if (!arr) {
+      const grp = groupOf(g);
+      arr = ((grp && seed(grp)[r]) || []).map((s, i) => ({ id: "seed" + i, uid: "seed-" + s.name, name: s.name, text: s.text, admin: !!s.admin, ts: Date.now() - s.ago * 60000 }));
+      lsSet(sk(g, r), JSON.stringify(arr));
+    }
+    return arr;
+  }
+  const write = (g, r, arr) => lsSet(sk(g, r), JSON.stringify(arr.slice(-200)));
+  const emit = (g, r) => (subs[key(g, r)] || []).forEach((cb) => cb(read(g, r).slice(-KEEP)));
+  window.addEventListener("storage", (e) => {
+    const m = e.key && e.key.match(/^gc_demo_(\w+)_(\w+)$/);
+    if (m && roomOf(m[2])) emit(m[1], m[2]);
+  });
+  const getSession = () => { try { return JSON.parse(lsGet("gc_demo_session") || "null"); } catch (e) { return null; } };
+  const setSession = (s) => { lsSet("gc_demo_session", s ? JSON.stringify(s) : ""); };
+  const toS = (s) => s.admin ? { status: "admin", name: ADMIN_NAME, uid, admin: true, group: null } : { status: "member", name: s.name, uid, admin: false, group: s.group };
+  return {
+    onSession(cb) { sessionCb = cb; const s = getSession(); cb(s && (s.admin || groupOf(s.group)) ? toS(s) : { status: "out" }); },
+    async join(code, name) {
+      const g = GROUPS.find((x) => x.demoCode.toLowerCase() === code.trim().toLowerCase());
+      if (!g) throw new Error("badcode");
+      const s = { name, admin: false, group: g.id }; setSession(s); sessionCb(toS(s));
+    },
+    async adminLogin() { const s = { admin: true }; setSession(s); sessionCb(toS(s)); },
+    async setName(name) { const s = getSession() || {}; s.name = name; setSession(s); },
+    async signOut() { setSession(null); sessionCb({ status: "out" }); },
+    subscribe(g, r, cb) { const k = key(g, r); (subs[k] = subs[k] || []).push(cb); cb(read(g, r).slice(-KEEP)); return () => { subs[k] = subs[k].filter((x) => x !== cb); }; },
+    async send(g, r, text, me) {
+      const arr = read(g, r);
+      arr.push({ id: "m" + Date.now() + Math.random().toString(36).slice(2, 6), uid, name: me.name, text, admin: !!me.admin, ts: Date.now() });
+      write(g, r, arr); emit(g, r);
+    },
+    async remove(g, r, id) { write(g, r, read(g, r).filter((m) => m.id !== id)); emit(g, r); },
+  };
+}
+
+/* ============ つなぎ先その2：Firebase（本番） ============ */
+async function makeFirebase() {
+  const CDN = "https://www.gstatic.com/firebasejs/" + FIREBASE_VERSION;
+  const { initializeApp } = await import(CDN + "/firebase-app.js");
+  const A = await import(CDN + "/firebase-auth.js");
+  const F = await import(CDN + "/firebase-firestore.js");
+  const app = initializeApp(FIREBASE_CONFIG);
+  const auth = A.getAuth(app), db = F.getFirestore(app);
+  const msgs = (g, r) => F.collection(db, "groups", g, "rooms", r, "messages");
+  let sessionCb = () => {}, joining = false;
+  A.onAuthStateChanged(auth, async (user) => {
+    if (joining) return;
+    if (!user) { sessionCb({ status: "out" }); return; }
+    if (!user.isAnonymous) {                       // Google ログイン＝講師の候補。本当に講師か、名簿の読み取りで確かめる
+      try {
+        await F.getDocs(F.query(F.collection(db, "members"), F.limit(1)));
+        sessionCb({ status: "admin", name: ADMIN_NAME, uid: user.uid, admin: true, group: null });
+      } catch (e) {
+        await A.signOut(auth);
+        sessionCb({ status: "out", error: "このGoogleアカウントは、講師として登録されていません。" });
+      }
+      return;
+    }
+    try {
+      const s = await F.getDoc(F.doc(db, "members", user.uid));
+      if (s.exists() && groupOf(s.data().group)) sessionCb({ status: "member", name: s.data().name, uid: user.uid, admin: false, group: s.data().group });
+      else sessionCb({ status: "out" });
+    } catch (e) { sessionCb({ status: "out" }); }
+  });
+  return {
+    onSession(cb) { sessionCb = cb; },
+    async join(code, name) {
+      joining = true;
+      try {
+        const user = auth.currentUser || (await A.signInAnonymously(auth)).user;
+        // 合言葉がどのグループのものか、グループを順番に試す（合わないグループは安全ルールが断る）
+        for (const g of GROUPS) {
+          try {
+            await F.setDoc(F.doc(db, "members", user.uid), { group: g.id, code, name, createdAt: F.serverTimestamp() });
+            sessionCb({ status: "member", name, uid: user.uid, admin: false, group: g.id });
+            return;
+          } catch (e) {
+            if (!(e && e.code === "permission-denied")) throw e;
+          }
+        }
+        throw new Error("badcode");
+      } finally { joining = false; }
+    },
+    async adminLogin() { await A.signInWithPopup(auth, new A.GoogleAuthProvider()); },
+    async setName(name) { await F.updateDoc(F.doc(db, "members", auth.currentUser.uid), { name }); },
+    async signOut() { await A.signOut(auth); },
+    subscribe(g, r, cb) {
+      const q = F.query(msgs(g, r), F.orderBy("createdAt", "desc"), F.limit(KEEP));
+      return F.onSnapshot(q, (snap) => {
+        cb(snap.docs.map((d) => {
+          const x = d.data({ serverTimestamps: "estimate" });
+          return { id: d.id, uid: x.uid, name: x.name, text: x.text, admin: !!x.admin, ts: x.createdAt ? x.createdAt.toMillis() : Date.now() };
+        }).reverse());
+      }, (err) => cb(null, err));
+    },
+    async send(g, r, text, me) {
+      await F.addDoc(msgs(g, r), { uid: auth.currentUser.uid, name: me.name, text, admin: !!me.admin, createdAt: F.serverTimestamp() });
+    },
+    async remove(g, r, id) { await F.deleteDoc(F.doc(db, "groups", g, "rooms", r, "messages", id)); },
+  };
+}
+
+/* ============ 画面 ============ */
+let backend = null, session = { status: "out" }, current = "info", group = null;
+let unsubs = [], data = {}, loadErr = {}, lastSeen = {}, subscribedFor = null, stick = true, sending = false;
+
+function seenKey() { return "gc_seen_" + (session.uid || "x"); }
+const myGroups = () => session.admin ? GROUPS : GROUPS.filter((g) => g.id === session.group);
+
+function showGate(errText) {
+  $("chat").classList.add("hidden"); $("gate").classList.remove("hidden");
+  const e = $("gateErr");
+  if (errText) { e.textContent = errText; e.classList.remove("hidden"); } else e.classList.add("hidden");
+  $("joinBtn").disabled = false; $("joinBtn").textContent = "入る";
+}
+function renderWho() {
+  const w = $("who"); w.innerHTML = "";
+  if (session.admin) w.append(session.name + "（講師）として参加中");
+  else { w.append(session.name + " として参加中"); if (GROUPS.length > 1) w.append(el("span", { class: "gname" }, groupOf(session.group).name)); }
+}
+function showChat() {
+  $("gate").classList.add("hidden"); $("chat").classList.remove("hidden");
+  renderWho();
+  $("groupbar").classList.toggle("hidden", !session.admin || GROUPS.length < 2);
+  renderGroupSel(); renderTabs(); renderRoom(true); renderComposer();
+}
+function stopRooms() { unsubs.forEach((u) => { try { u(); } catch (e) { /* 無視 */ } }); unsubs = []; data = {}; loadErr = {}; subscribedFor = null; }
+function startRooms() {
+  if (subscribedFor === session.uid) return;
+  stopRooms(); subscribedFor = session.uid;
+  try { lastSeen = JSON.parse(lsGet(seenKey()) || "{}"); } catch (e) { lastSeen = {}; }
+  myGroups().forEach((g) => ROOMS.forEach((r) => {
+    const k = key(g.id, r.id);
+    unsubs.push(backend.subscribe(g.id, r.id, (msgs, err) => {
+      if (err) { loadErr[k] = true; if (g.id === group && r.id === current) renderRoom(false); return; }
+      delete loadErr[k]; data[k] = msgs;
+      if (lastSeen[k] === undefined) { lastSeen[k] = msgs.length ? msgs[msgs.length - 1].ts : Date.now(); saveSeen(); }
+      if (g.id === group && r.id === current) { renderRoom(false); markSeen(k); }
+      renderTabs(); renderGroupSel();
+    }));
+  }));
+}
+function saveSeen() { lsSet(seenKey(), JSON.stringify(lastSeen)); }
+function markSeen(k) {
+  const arr = data[k] || [];
+  const t = arr.length ? arr[arr.length - 1].ts : Date.now();
+  if (lastSeen[k] !== t) { lastSeen[k] = t; saveSeen(); renderTabs(); renderGroupSel(); }
+}
+function unread(k) { return (data[k] || []).filter((m) => m.ts > (lastSeen[k] || 0) && m.uid !== session.uid).length; }
+function groupUnread(gid) { return ROOMS.reduce((n, r) => n + ((gid === group && r.id === current) ? 0 : unread(key(gid, r.id))), 0); }
+
+function renderGroupSel() {
+  if (!session.admin) return;
+  const sel = $("groupSel"); sel.innerHTML = "";
+  GROUPS.forEach((g) => {
+    const n = groupUnread(g.id);
+    const o = el("option", { value: g.id }, g.name + (n && g.id !== group ? "（未読" + n + "）" : ""));
+    if (g.id === group) o.selected = true;
+    sel.append(o);
+  });
+}
+function renderTabs() {
+  const box = $("tabs"); box.innerHTML = "";
+  ROOMS.forEach((r) => {
+    const n = r.id === current ? 0 : unread(key(group, r.id));
+    box.append(el("button", { type: "button", class: "tab", "aria-current": r.id === current ? "true" : "false", onclick: () => switchRoom(r.id) },
+      r.name, n ? el("span", { class: "badge", "aria-label": "未読" + n + "件" }, String(n)) : null));
+  });
+}
+function switchRoom(id) { current = id; stick = true; renderTabs(); renderRoom(true); renderComposer(); markSeen(key(group, id)); }
+function switchGroup(gid) { group = gid; current = "info"; stick = true; renderGroupSel(); renderTabs(); renderRoom(true); renderComposer(); markSeen(key(group, current)); }
+$("groupSel").addEventListener("change", (e) => switchGroup(e.target.value));
+
+function linkify(text) {
+  const out = [], re = /(https?:\/\/[^\s<>"']+)/g;
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    let ok = false; try { const u = new URL(m[0]); ok = u.protocol === "http:" || u.protocol === "https:"; } catch (e) { ok = false; }
+    out.push(ok ? el("a", { href: m[0], target: "_blank", rel: "noopener noreferrer" }, m[0]) : m[0]);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+const dayFmt = new Intl.DateTimeFormat("ja-JP", { month: "long", day: "numeric", weekday: "short" });
+const timeFmt = new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
+const dayKey = (ts) => { const d = new Date(ts); return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate(); };
+
+function renderRoom(changed) {
+  const room = roomOf(current), log = $("log"), k = key(group, current);
+  $("desc").textContent = room.desc;
+  const near = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
+  log.innerHTML = "";
+  if (loadErr[k]) { log.append(el("div", { class: "empty" }, "メッセージを読みこめませんでした。通信を確かめて、ページを開きなおしてください。")); return; }
+  const arr = data[k];
+  if (!arr) { log.append(el("div", { class: "empty" }, "読みこみ中…")); return; }
+  if (!arr.length) log.append(el("div", { class: "empty" }, room.adminOnly ? "まだお知らせはありません。" : "まだメッセージはありません。最初のひとことを、どうぞ。"));
+  let prev = null;
+  arr.forEach((m) => {
+    const dk = dayKey(m.ts);
+    if (dk !== prev) { log.append(el("div", { class: "day" }, dayFmt.format(new Date(m.ts)))); prev = dk; }
+    const mine = m.uid === session.uid;
+    const canDel = mine || session.admin;
+    log.append(el("div", { class: "msg" + (mine ? " mine" : "") + (m.admin ? " admin" : "") },
+      el("div", { class: "meta" }, el("b", null, m.name), m.admin ? el("span", { class: "tag" }, "講師") : null, el("time", { datetime: new Date(m.ts).toISOString() }, timeFmt.format(new Date(m.ts)))),
+      el("div", { class: "bubble" }, linkify(m.text)),
+      canDel ? el("button", { type: "button", class: "del", "aria-label": "このメッセージを消す", onclick: () => removeMsg(m) }, "消す") : null));
+  });
+  if (changed || stick || near) { log.scrollTop = log.scrollHeight; stick = false; }
+}
+function renderComposer() {
+  const room = roomOf(current), box = $("composer"); box.innerHTML = "";
+  if (room.adminOnly && !session.admin) { box.append(el("div", { class: "locked" }, "この部屋は、講師からのお知らせ専用です。")); return; }
+  if (room.adminOnly && session.admin && GROUPS.length > 1) {
+    box.append(el("label", { class: "all" }, el("input", { type: "checkbox", id: "toAll" }), "全部のグループに同じお知らせを送る"));
+  }
+  const ta = el("textarea", { id: "input", rows: "1", maxlength: String(MAX_TEXT), placeholder: "メッセージを書く", "aria-label": "メッセージ" });
+  const btn = el("button", { type: "button", id: "send", onclick: doSend }, "送る");
+  const fit = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; btn.disabled = !ta.value.trim() || sending; };
+  ta.addEventListener("input", fit);
+  ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); doSend(); } });
+  box.append(el("div", { class: "row" }, ta, btn), el("div", { class: "hint" }, "改行はそのまま Enter。送るときは「送る」ボタン（パソコンは Ctrl+Enter でも送れます）"));
+  btn.disabled = true;
+}
+async function doSend() {
+  const ta = $("input"); if (!ta || sending) return;
+  const text = ta.value.trim(); if (!text) return;
+  const all = $("toAll") && $("toAll").checked;
+  const targets = all ? GROUPS.map((g) => g.id) : [group];
+  sending = true; $("send").disabled = true; ta.value = ""; ta.style.height = "auto"; stick = true;
+  const failed = [];
+  for (const g of targets) {
+    try { await backend.send(g, current, text.slice(0, MAX_TEXT), { name: session.name, admin: session.admin }); }
+    catch (e) { failed.push(groupOf(g).name); }
+  }
+  if (failed.length === targets.length) { toast("送れませんでした。通信を確かめて、もう一度お試しください。"); if (!ta.value) ta.value = text; }
+  else if (failed.length) toast(failed.join("・") + " には送れませんでした。もう一度お試しください。");
+  else if (all) { toast("全部のグループに送りました。"); $("toAll").checked = false; }
+  sending = false; const b = $("send"); if (b) b.disabled = !($("input").value.trim());
+}
+async function removeMsg(m) {
+  if (!confirm("このメッセージを消しますか？\n（消すと、みんなの画面からも消えます）")) return;
+  try { await backend.remove(group, current, m.id); } catch (e) { toast("消せませんでした。もう一度お試しください。"); }
+}
+
+/* ---- 入口の動き ---- */
+function validName(name) {
+  if (!name) return "ニックネームを入れてください。";
+  const n = name.replace(/\s/g, "");
+  if (n === ADMIN_NAME || n.includes("講師")) return "その名前は使えません。ほかの名前にしてください。";
+  return "";
+}
+$("joinForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const code = $("codeInput").value.trim(), name = $("nameInput").value.trim().slice(0, 20);
+  const bad = !code ? "合言葉を入れてください。" : validName(name);
+  if (bad) { showGate(bad); return; }
+  $("joinBtn").disabled = true; $("joinBtn").textContent = "確認中…";
+  try { await backend.join(code, name); }
+  catch (err) { showGate(err && err.message === "badcode" ? "合言葉がちがうようです。講師から届いた合言葉を、もう一度確かめてください。" : "うまく入れませんでした。通信を確かめて、もう一度お試しください。"); }
+});
+$("adminLink").addEventListener("click", async () => {
+  try { await backend.adminLogin(); } catch (e) { showGate("講師としてのログインができませんでした。（パソコンのブラウザでお試しください）"); }
+});
+
+/* ---- メニュー ---- */
+$("menuBtn").addEventListener("click", () => $("menuDlg").showModal());
+$("menuClose").addEventListener("click", () => $("menuDlg").close());
+$("rulesBtn").addEventListener("click", () => { $("menuDlg").close(); $("rulesDlg").showModal(); });
+$("rulesClose").addEventListener("click", () => $("rulesDlg").close());
+$("renameBtn").addEventListener("click", () => {
+  $("menuDlg").close();
+  if (session.admin) { toast("講師の表示名は、変えられません。"); return; }
+  $("renameInput").value = session.name; $("renameErr").classList.add("hidden"); $("renameDlg").showModal();
+});
+$("renameCancel").addEventListener("click", () => $("renameDlg").close());
+$("renameSave").addEventListener("click", async () => {
+  const name = $("renameInput").value.trim().slice(0, 20), bad = validName(name), err = $("renameErr");
+  if (bad) { err.textContent = bad; err.classList.remove("hidden"); return; }
+  try { await backend.setName(name); session.name = name; renderWho(); $("renameDlg").close(); toast("名前をかえました。"); }
+  catch (e) { err.textContent = "保存できませんでした。もう一度お試しください。"; err.classList.remove("hidden"); }
+});
+$("logoutBtn").addEventListener("click", async () => {
+  if (!confirm("ログアウトしますか？\nもう一度入るには、合言葉が必要です。")) return;
+  $("menuDlg").close();
+  try { await backend.signOut(); } catch (e) { toast("ログアウトできませんでした。"); }
+});
+
+/* ---- はじまり ---- */
+function onSession(s) {
+  const was = session; session = s;
+  if (s.status === "out") { stopRooms(); showGate(s.error || ""); return; }
+  if (was.uid !== s.uid || was.status !== s.status) { current = "info"; group = s.admin ? GROUPS[0].id : s.group; subscribedFor = null; }
+  showChat(); startRooms();
+}
+document.title = TITLE; $("gateTitle").textContent = TITLE; $("chatTitle").textContent = TITLE;
+document.querySelectorAll(".rulesList").forEach((ul) => RULES.forEach((r) => ul.append(el("li", null, r))));
+$("demoBanner").classList.toggle("hidden", !!FIREBASE_CONFIG);
+$("demoCodes").textContent = GROUPS.length > 1 ? GROUPS.map((g) => g.name + "＝「" + g.demoCode + "」").join("、") : "「" + GROUPS[0].demoCode + "」";
+(async () => {
+  try { backend = FIREBASE_CONFIG ? await makeFirebase() : makeDemo(); }
+  catch (e) { $("gate").classList.remove("hidden"); showGate("つなぎ先の読みこみに失敗しました。通信を確かめて、ページを開きなおしてください。"); return; }
+  backend.onSession(onSession);
+})();
+</script>
+</body>
+</html>
