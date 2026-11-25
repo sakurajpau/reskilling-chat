@@ -58,6 +58,13 @@
   .msg.mine .bubble{ background:var(--mainbg); border-color:#BFD0DC; }
   .msg.admin .bubble{ background:var(--accbg); border-color:#DEC6AE; }
   .bubble a{ color:var(--acc); }
+  .att-img{ display:block; max-width:min(100%,360px); max-height:360px; border-radius:10px; margin-top:6px; cursor:zoom-in; border:1px solid var(--line); background:#fff; }
+  .att-file{ display:inline-flex; align-items:center; gap:8px; margin-top:6px; padding:6px 12px; background:#fff; border:1px solid var(--line); border-radius:10px; color:var(--ink); font-weight:700; font-size:14px; min-height:40px; }
+  .att-file small{ color:var(--soft); font-weight:500; }
+  .pending{ display:flex; align-items:center; gap:8px; margin:0 4px 6px; font-size:13px; }
+  .pending img{ max-height:56px; max-width:90px; border-radius:6px; border:1px solid var(--line); }
+  .pending button{ min-height:32px; padding:2px 12px; font-size:13px; }
+  .attach{ flex:none; }
   .del{ background:none; color:var(--soft); font-weight:500; font-size:12px; padding:0 6px; min-height:28px; border-radius:8px; text-decoration:underline; }
   .empty{ text-align:center; color:var(--soft); margin:40px 10px; font-size:14.5px; }
   .composer{ border-top:1px solid var(--line); padding:8px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--paper); }
@@ -144,6 +151,11 @@
   <input type="text" id="renameInput" maxlength="20">
   <div id="renameErr" class="err hidden" role="alert"></div>
   <div class="row"><button type="button" class="sub" id="renameCancel">やめる</button><button type="button" id="renameSave">保存</button></div>
+</dialog>
+
+<dialog id="imgDlg" style="max-width:96vw;padding:10px">
+  <img id="imgDlgImg" alt="" style="display:block;max-width:92vw;max-height:80vh;border-radius:8px">
+  <div class="row"><button type="button" id="imgDlgClose">閉じる</button></div>
 </dialog>
 
 <div id="toast" class="toast hidden" role="status"></div>
@@ -245,10 +257,14 @@ function makeDemo() {
     async setName(name) { const s = getSession() || {}; s.name = name; setSession(s); },
     async signOut() { setSession(null); sessionCb({ status: "out" }); },
     subscribe(g, r, cb) { const k = key(g, r); (subs[k] = subs[k] || []).push(cb); cb(read(g, r).slice(-KEEP)); return () => { subs[k] = subs[k].filter((x) => x !== cb); }; },
-    async send(g, r, text, me) {
+    async send(g, r, text, me, att) {
       const arr = read(g, r);
-      arr.push({ id: "m" + Date.now() + Math.random().toString(36).slice(2, 6), uid, name: me.name, text, admin: !!me.admin, ts: Date.now() });
-      write(g, r, arr); emit(g, r);
+      const m = { id: "m" + Date.now() + Math.random().toString(36).slice(2, 6), uid, name: me.name, text, admin: !!me.admin, ts: Date.now() };
+      if (att) m.att = att;
+      arr.push(m);
+      const before = lsGet(sk(g, r)); write(g, r, arr);
+      if (lsGet(sk(g, r)) === before) throw new Error("full");   // れんしゅうモードの保存場所がいっぱい
+      emit(g, r);
     },
     async remove(g, r, id) { write(g, r, read(g, r).filter((m) => m.id !== id)); emit(g, r); },
   };
@@ -310,12 +326,14 @@ async function makeFirebase() {
       return F.onSnapshot(q, (snap) => {
         cb(snap.docs.map((d) => {
           const x = d.data({ serverTimestamps: "estimate" });
-          return { id: d.id, uid: x.uid, name: x.name, text: x.text, admin: !!x.admin, ts: x.createdAt ? x.createdAt.toMillis() : Date.now() };
+          return { id: d.id, uid: x.uid, name: x.name, text: x.text, admin: !!x.admin, att: x.att || null, ts: x.createdAt ? x.createdAt.toMillis() : Date.now() };
         }).reverse());
       }, (err) => cb(null, err));
     },
-    async send(g, r, text, me) {
-      await F.addDoc(msgs(g, r), { uid: auth.currentUser.uid, name: me.name, text, admin: !!me.admin, createdAt: F.serverTimestamp() });
+    async send(g, r, text, me, att) {
+      const doc = { uid: auth.currentUser.uid, name: me.name, text, admin: !!me.admin, createdAt: F.serverTimestamp() };
+      if (att) doc.att = att;
+      await F.addDoc(msgs(g, r), doc);
     },
     async remove(g, r, id) { await F.deleteDoc(F.doc(db, "groups", g, "rooms", r, "messages", id)); },
   };
@@ -425,7 +443,7 @@ function renderRoom(changed) {
     const canDel = mine || session.admin;
     log.append(el("div", { class: "msg" + (mine ? " mine" : "") + (m.admin ? " admin" : "") },
       el("div", { class: "meta" }, el("b", null, m.name), m.admin ? el("span", { class: "tag" }, "講師") : null, el("time", { datetime: new Date(m.ts).toISOString() }, timeFmt.format(new Date(m.ts)))),
-      el("div", { class: "bubble" }, linkify(m.text)),
+      el("div", { class: "bubble" }, m.text ? linkify(m.text) : null, m.att ? renderAtt(m.att) : null),
       canDel ? el("button", { type: "button", class: "del", "aria-label": "このメッセージを消す", onclick: () => removeMsg(m) }, "消す") : null));
   });
   if (changed || stick || near) { log.scrollTop = log.scrollHeight; stick = false; }
@@ -436,29 +454,108 @@ function renderComposer() {
   if (room.adminOnly && session.admin && GROUPS.length > 1) {
     box.append(el("label", { class: "all" }, el("input", { type: "checkbox", id: "toAll" }), "全部のグループに同じお知らせを送る"));
   }
+  pendingAtt = null;
   const ta = el("textarea", { id: "input", rows: "1", maxlength: String(MAX_TEXT), placeholder: "メッセージを書く", "aria-label": "メッセージ" });
   const btn = el("button", { type: "button", id: "send", onclick: doSend }, "送る");
-  const fit = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; btn.disabled = !ta.value.trim() || sending; };
+  const fit = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; updateSendBtn(); };
   ta.addEventListener("input", fit);
   ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); doSend(); } });
-  box.append(el("div", { class: "row" }, ta, btn), el("div", { class: "hint" }, "改行はそのまま Enter。送るときは「送る」ボタン（パソコンは Ctrl+Enter でも送れます）"));
+  const row = el("div", { class: "row" });
+  if (session.admin) {
+    const fileIn = el("input", { type: "file", id: "fileIn", class: "hidden", accept: "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" });
+    fileIn.addEventListener("change", () => { const f = fileIn.files && fileIn.files[0]; fileIn.value = ""; if (f) pickFile(f); });
+    ta.addEventListener("paste", (e) => {           // スクリーンショットを Ctrl+V で貼れる
+      const item = [...(e.clipboardData ? e.clipboardData.items : [])].find((i) => i.kind === "file" && i.type.startsWith("image/"));
+      if (item) { e.preventDefault(); pickFile(item.getAsFile()); }
+    });
+    box.append(el("div", { class: "pending hidden", id: "pending" }));
+    row.append(fileIn, el("button", { type: "button", class: "sub attach", "aria-label": "画像やファイルをつける", onclick: () => fileIn.click() }, "画像・ファイル"));
+  }
+  row.append(ta, btn);
+  box.append(row, el("div", { class: "hint" }, session.admin
+    ? "改行はそのまま Enter。送るときは「送る」ボタン。スクリーンショットは、ここに Ctrl+V で貼ることもできます。"
+    : "改行はそのまま Enter。送るときは「送る」ボタン（パソコンは Ctrl+Enter でも送れます）"));
   btn.disabled = true;
+}
+
+/* ---- 画像・ファイル（講師だけ） ---- */
+let pendingAtt = null;
+const FILE_MAX = 600 * 1024;          // 画像以外のファイルは 600KB まで（大きいものはGoogleドライブのリンクで）
+const IMG_MAX_CHARS = 700 * 1024;     // 縮めたあとの画像の大きさの上限
+function updateSendBtn() { const b = $("send"), ta = $("input"); if (b && ta) b.disabled = sending || (!ta.value.trim() && !pendingAtt); }
+function kb(n) { return n >= 1024 * 1024 ? (n / 1024 / 1024).toFixed(1) + "MB" : Math.max(1, Math.round(n / 1024)) + "KB"; }
+function readAsDataURL(f) { return new Promise((ok, ng) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ng(r.error); r.readAsDataURL(f); }); }
+async function shrinkImage(f) {
+  const url = URL.createObjectURL(f);
+  try {
+    const img = await new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = url; });
+    for (const [side, q] of [[1800, 0.85], [1600, 0.8], [1280, 0.75], [1024, 0.7], [800, 0.6]]) {
+      const sc = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * sc); c.height = Math.round(img.naturalHeight * sc);
+      const cx = c.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, c.width, c.height); cx.drawImage(img, 0, 0, c.width, c.height);
+      const d = c.toDataURL("image/jpeg", q);
+      if (d.length <= IMG_MAX_CHARS) return d;
+    }
+    return null;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function pickFile(f) {
+  const isImg = /^image\/(png|jpeg|gif|webp|bmp)$/.test(f.type);
+  try {
+    if (isImg) {
+      const data = await shrinkImage(f);
+      if (!data) { toast("画像が大きすぎて送れません。"); return; }
+      pendingAtt = { kind: "image", name: (f.name || "screenshot.png").slice(0, 100), type: "image/jpeg", size: Math.round(data.length * 0.75), data };
+    } else {
+      if (f.size > FILE_MAX) { toast("ファイルが大きすぎます（" + kb(f.size) + "）。600KBまでです。大きいファイルは、Googleドライブのリンクを貼ってください。"); return; }
+      const data = await readAsDataURL(f);
+      pendingAtt = { kind: "file", name: (f.name || "file").slice(0, 100), type: (f.type || "application/octet-stream").slice(0, 100), size: f.size, data };
+    }
+  } catch (e) { toast("読みこめませんでした。ほかのファイルでお試しください。"); return; }
+  const p = $("pending"); if (!p) return;
+  p.innerHTML = ""; p.classList.remove("hidden");
+  p.append(pendingAtt.kind === "image" ? el("img", { src: pendingAtt.data, alt: "" }) : "",
+    el("span", null, "つける：" + pendingAtt.name + "（" + kb(pendingAtt.size) + "）"),
+    el("button", { type: "button", class: "sub", onclick: clearPending }, "やめる"));
+  updateSendBtn();
+}
+function clearPending() { pendingAtt = null; const p = $("pending"); if (p) { p.innerHTML = ""; p.classList.add("hidden"); } updateSendBtn(); }
+function dataToBlob(data) {
+  const m = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(data || ""); if (!m) return null;
+  const bin = atob(m[3]), u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return new Blob([u], { type: "application/octet-stream" });   // 開かずに保存だけさせる
+}
+function saveAtt(att) {
+  const b = dataToBlob(att.data); if (!b) { toast("ファイルを開けませんでした。"); return; }
+  const u = URL.createObjectURL(b), a = el("a", { href: u, download: att.name || "file" });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000);
+}
+function showImage(data) { $("imgDlgImg").setAttribute("src", data); $("imgDlg").showModal(); }
+function renderAtt(att) {
+  if (!att || typeof att.data !== "string") return null;
+  if (att.kind === "image" && /^data:image\/(png|jpeg|gif|webp);base64,/.test(att.data)) {
+    return el("img", { class: "att-img", src: att.data, alt: att.name || "画像", title: "押すと大きく見られます", onclick: () => showImage(att.data) });
+  }
+  return el("button", { type: "button", class: "att-file", onclick: () => saveAtt(att) }, "ファイル：" + (att.name || "file"), el("small", null, "（" + kb(att.size || 0) + "・押すと保存）"));
 }
 async function doSend() {
   const ta = $("input"); if (!ta || sending) return;
-  const text = ta.value.trim(); if (!text) return;
+  const text = ta.value.trim(), att = session.admin ? pendingAtt : null; if (!text && !att) return;
   const all = $("toAll") && $("toAll").checked;
   const targets = all ? GROUPS.map((g) => g.id) : [group];
   sending = true; $("send").disabled = true; ta.value = ""; ta.style.height = "auto"; stick = true;
   const failed = [];
   for (const g of targets) {
-    try { await backend.send(g, current, text.slice(0, MAX_TEXT), { name: session.name, admin: session.admin }); }
+    try { await backend.send(g, current, text.slice(0, MAX_TEXT), { name: session.name, admin: session.admin }, att); }
     catch (e) { failed.push(groupOf(g).name); }
   }
   if (failed.length === targets.length) { toast("送れませんでした。通信を確かめて、もう一度お試しください。"); if (!ta.value) ta.value = text; }
+  else if (att) clearPending();
   else if (failed.length) toast(failed.join("・") + " には送れませんでした。もう一度お試しください。");
   else if (all) { toast("全部のグループに送りました。"); $("toAll").checked = false; }
-  sending = false; const b = $("send"); if (b) b.disabled = !($("input").value.trim());
+  sending = false; updateSendBtn();
 }
 async function removeMsg(m) {
   if (!confirm("このメッセージを消しますか？\n（消すと、みんなの画面からも消えます）")) return;
@@ -490,6 +587,7 @@ $("menuBtn").addEventListener("click", () => $("menuDlg").showModal());
 $("menuClose").addEventListener("click", () => $("menuDlg").close());
 $("rulesBtn").addEventListener("click", () => { $("menuDlg").close(); $("rulesDlg").showModal(); });
 $("rulesClose").addEventListener("click", () => $("rulesDlg").close());
+$("imgDlgClose").addEventListener("click", () => $("imgDlg").close());
 $("renameBtn").addEventListener("click", () => {
   $("menuDlg").close();
   if (session.admin) { toast("講師の表示名は、変えられません。"); return; }
